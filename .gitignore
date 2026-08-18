@@ -1,0 +1,10 @@
+.venv/
+venv/
+
+
+.env
+.vscode/
+Logs/
+
+__pycach__/
+*.py[cod]
