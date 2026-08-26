@@ -9,7 +9,7 @@ from services.email import send_admin_email
 from services.utils import check_admin
 from datetime import timedelta , timezone,datetime
 from jose import jwt
-import os 
+import os
 import secrets
 from dotenv import load_dotenv
 from redis_client import redis_py
@@ -22,8 +22,8 @@ router=APIRouter(prefix="/admin")
 async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:str=Form(),password:str=Form(),db:AsyncSession=Depends(get_db)):
     try:
         db_admin= await db.get(Admin,username)
-        ip=req.client.host 
-        # bg_task.add_task(send_admin_email,ip)        
+        ip=req.client.host
+        # bg_task.add_task(send_admin_email,ip)
         if not db_admin:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Nothing Try Again")
         if password == db_admin.password:
@@ -38,12 +38,12 @@ async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:
             res.set_cookie(key="session_id",value=session_id,samesite="strict",path='/admin',httponly=True)
             return {
                 "message":"Successfully Login"
-            }        
+            }
     except SQLAlchemyError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not responding.") 
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not responding.")
 
 
-@router.get("/products/display",tags=["admin / Products"])
+@router.get("/products",tags=["Admin / Products"])
 async def list_products(admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
     try:
         db_list=await db.scalars(select(Product))
@@ -52,7 +52,7 @@ async def list_products(admin:dict=Depends(check_admin),db:AsyncSession=Depends(
     except SQLAlchemyError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again later.")
 
-@router.post("/products/add",tags=["Admin / Products"])
+@router.post("/products",tags=["Admin / Products"])
 async def add_product(product:Add_product,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
     try:
         new_product=Product(name=product.name,price=product.price,is_available=product.is_available)
@@ -64,7 +64,7 @@ async def add_product(product:Add_product,admin:dict=Depends(check_admin),db:Asy
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is Down Try Again Later.")
     return product
 
-@router.patch("/product/update",tags=["Admin / Products"])
+@router.patch("/product",tags=["Admin / Products"])
 async def update_product(
     product_id:int,
     admin:dict=Depends(check_admin),
@@ -93,7 +93,7 @@ async def update_product(
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again Later.")
 
-@router.delete("/product/delete",tags=["Admin / Products"])
+@router.delete("/product",tags=["Admin / Products"])
 async def delete_products(product_id:int,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
     try:
         product= await db.get(Product,product_id)
@@ -105,7 +105,7 @@ async def delete_products(product_id:int,admin:dict=Depends(check_admin),db:Asyn
         return {"message":f"{product.name} was Deleted Successfully"}
     except SQLAlchemyError:
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again Later.")    
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again Later.")
 
 @router.post("/user/block",tags=["Admin / user"])
 async def block_user(user_id:int,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
@@ -223,7 +223,7 @@ async def manage_delivery(order_id:int,order_status:str,db:AsyncSession=Depends(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was Delivered already.")
         if order.status == "cancelled" :
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was cancelled already.")
-        order.status=order_status   
+        order.status=order_status
         await db.commit()
         return "Updated!"
     except SQLAlchemyError:
