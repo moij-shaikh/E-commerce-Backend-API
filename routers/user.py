@@ -7,7 +7,7 @@ from fastapi import APIRouter ,Depends,Request,Response ,HTTPException,status,Ba
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user_schemas import Register_user
 from schemas.order_schemas import show_history_items
-from database.database import get_db 
+from database.database import get_db
 from database.models import User,Address ,Order , OrderItems
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,7 +23,7 @@ jwt_algo=os.getenv("JWT_ALGORITHM")
 
 router=APIRouter(prefix="/user")
 
-@router.post("/register",tags=["User"])
+@router.post("",tags=["User"])
 async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Register_user,db:AsyncSession=Depends(get_db)):
      existing=await db.scalar(select(User).where(User.username==register_user.username))
      if existing:
@@ -148,7 +148,7 @@ def refresh_user_token(req:Request):
      try:
           payload=jwt.decode(token,jwt_key,algorithms=[jwt_algo])
      except JWTError:
-          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Login First") 
+          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Login First")
 
      if str(redis_token) != str(payload.get("sub")):
           raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid token.")
@@ -161,9 +161,9 @@ def refresh_user_token(req:Request):
      return {
           "token_type":"bearer",
           "access_token":access_token
-     } 
+     }
 
-@router.patch("/info/update",tags=["User"])
+@router.patch("",tags=["User"])
 async def update_user(
           payload:dict=Depends(get_current_user),
           full_name:str=Form(default=None),
@@ -197,7 +197,7 @@ async def update_user(
 
 
 
-@router.delete("/delete",tags=["User"])
+@router.delete("",tags=["User"])
 async def delete_user(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
      try:
           user=payload.get("sub")
@@ -248,5 +248,3 @@ async def get_order_items(order_id:int,payload:dict=Depends(get_current_user),db
                }
           )
      return items
-
-
