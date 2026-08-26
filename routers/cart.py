@@ -2,7 +2,7 @@ from fastapi import APIRouter,Depends,Request,Response,HTTPException,status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select,delete
 from sqlalchemy.exc import SQLAlchemyError
-from database.database import get_db 
+from database.database import get_db
 from database.models import Product,Cart,CartItem,Order,OrderItems
 from services.utils import get_current_user
 from schemas.product_schemas import Display_products , Cart_items
@@ -12,7 +12,7 @@ import json
 from datetime import datetime,timezone
 
 router=APIRouter(prefix="/product")
-@router.get("/",response_model=list[Display_products], tags=["Products"])
+@router.get("",response_model=list[Display_products], tags=["Products"])
 async def display_products(user:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
     try:
         all_products=redis_py.get("products:all_cash")
@@ -27,7 +27,7 @@ async def display_products(user:dict=Depends(get_current_user),db:AsyncSession=D
                 "name":i.name,
                 "price":i.price,
                 "is_available":i.is_available
-            } 
+            }
             for i in all_products
         ]
         redis_py.set("products:all_cash",json.dumps(items),ex=60*10)
@@ -35,7 +35,7 @@ async def display_products(user:dict=Depends(get_current_user),db:AsyncSession=D
     except SQLAlchemyError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is Down. try again later.")
 
-@router.post("/add_to_cart", tags=["Cart"])
+@router.post("/cart", tags=["Cart"])
 async def add_item_to_cart(item:Cart_product,db:AsyncSession=Depends(get_db),payload:dict=Depends(get_current_user)):
     try:
         user_id=int(payload.get("sub"))
@@ -62,7 +62,7 @@ async def add_item_to_cart(item:Cart_product,db:AsyncSession=Depends(get_db),pay
         await db.commit()
         return {
             "message":"Product was added successfully."
-        }      
+        }
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down.")
@@ -92,7 +92,7 @@ async def display_cart(db:AsyncSession=Depends(get_db),payload:dict=Depends(get_
 
 
 
-@router.delete("/cart/delete/item",tags=["Cart"])
+@router.delete("/cart/item",tags=["Cart"])
 async def delete_item_cart(cart_item_id:int,db:AsyncSession=Depends(get_db),payload:dict=Depends(get_current_user)):
     user_id=int(payload.get("sub"))
     db_cart_item= await db.scalar(select(CartItem).join(Cart).where(CartItem.id==cart_item_id,Cart.user_id==user_id))
@@ -109,10 +109,7 @@ async def delete_item_cart(cart_item_id:int,db:AsyncSession=Depends(get_db),payl
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down.")
 
 @router.post("/checkout", tags=["Checkout"])
-async def checkout(
-    payload: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
+async def checkout( payload: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db) ):
     try:
         user_id = int(payload.get("sub"))
 
@@ -129,7 +126,7 @@ async def checkout(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Your cart is empty"
             )
-    
+
         products_ids=[i.product_id for i in cart_list]
         db_items_obj=await db.scalars(select(Product).where(Product.id.in_(products_ids)))
         products=db_items_obj.all()
