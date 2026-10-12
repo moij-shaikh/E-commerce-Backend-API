@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from schemas.product_schemas import Add_product
 from services.email import send_admin_email
-from services.utils import check_admin
+from services.auth import check_admin
 from datetime import timedelta , timezone,datetime
 from jose import jwt
 import os

@@ -1,9 +1,31 @@
-from pydantic import BaseModel ,ConfigDict
+from pydantic import BaseModel ,Field , ConfigDict
+from enum import Enum
 
-class Add_product(BaseModel):
+class Unit(str,Enum):
+    PIECE="piece"
+    KG="kg"
+    G="g"
+    ML="ml"
+    LITRE="litre"
+    METER="meter"
+    PACK="pack"
+    BOX="box"
+    
+
+
+class AddProduct(BaseModel):
     name:str
-    price:float
+    unit:Unit
+    quantity:float
+    price:float=Field(gt=0)
     is_available:bool=False
+    
+class UpdateProduct(BaseModel):
+    name:str|None=None
+    unit:Unit|None=None
+    quantity:float|None=None
+    price:float|None=Field(default=None,gt=0)
+    is_available:bool|None=None
 
 class Display_products(BaseModel):
     id:int

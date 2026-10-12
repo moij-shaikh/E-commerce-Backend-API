@@ -4,7 +4,7 @@ from sqlalchemy import select,delete
 from sqlalchemy.exc import SQLAlchemyError
 from database.database import get_db
 from database.models import Product,Cart,CartItem,Order,OrderItems
-from services.utils import get_current_user
+from services.auth import get_current_user
 from schemas.product_schemas import Display_products , Cart_items
 from schemas.order_schemas import Cart_product
 from redis_client import redis_py

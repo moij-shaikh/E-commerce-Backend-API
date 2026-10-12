@@ -17,10 +17,10 @@ class User(Base):
     full_name:Mapped[str]
     username:Mapped[str]=mapped_column(unique=True,nullable=False)
     password:Mapped[str]
-    ip_address:Mapped[str]=mapped_column(nullable=False)
     email:Mapped[str]
     is_verified:Mapped[bool]=mapped_column(default=False)
     is_blocked:Mapped[bool]=mapped_column(default=False)
+    is_account_closed:Mapped[bool]=mapped_column(default=True)
     address:Mapped["Address"]=relationship("Address",back_populates="user")
 
 class Address(Base):
@@ -28,8 +28,8 @@ class Address(Base):
     id:Mapped[int]=mapped_column(primary_key=True)
     house_no:Mapped[str]=mapped_column(nullable=False)
     street_name:Mapped[str]
-    Landmark:Mapped[str]=mapped_column(nullable=True)
-    Pincode:Mapped[int]=mapped_column(nullable=False)
+    landmark:Mapped[str]=mapped_column(nullable=True)
+    postal_code:Mapped[int]=mapped_column(nullable=False)
     user_id:Mapped[int]=mapped_column(ForeignKey("users.id",ondelete="CASCADE"))
     user:Mapped["User"]=relationship("User",back_populates="address")
 
@@ -37,6 +37,9 @@ class Address(Base):
 class Product(Base):
     __tablename__="products"
     id:Mapped[int]=mapped_column(primary_key=True)
+    image:Mapped[str]
+    unit:Mapped[str]
+    quantity:Mapped[float]
     name:Mapped[str]=mapped_column(nullable=False,unique=True,index=True)
     price:Mapped[float]=mapped_column(nullable=False)
     is_available:Mapped[bool]=mapped_column(default=False)
@@ -44,7 +47,8 @@ class Product(Base):
 class Cart(Base):
     __tablename__="cart"
     id:Mapped[int]=mapped_column(primary_key=True)
-    user_id:Mapped[int]=mapped_column(ForeignKey("users.id",ondelete="CASCADE"))
+    user_id:Mapped[int]=mapped_column(ForeignKey("users.id",ondelete="CASCADE"),unique=True)
+    
     items:Mapped[list["CartItem"]]=relationship("CartItem",back_populates="cart")
 
 class CartItem(Base):
@@ -53,6 +57,7 @@ class CartItem(Base):
     cart_id:Mapped[int]=mapped_column(ForeignKey("cart.id",ondelete="CASCADE"))
     product_id:Mapped[int]=mapped_column(ForeignKey("products.id"))
     quantity:Mapped[float]
+    
     cart:Mapped["Cart"]=relationship("Cart",back_populates="items")
     product:Mapped["Product"]=relationship("Product")
 
@@ -61,7 +66,7 @@ class Order(Base):
     __tablename__="orders"
     id:Mapped[int]=mapped_column(primary_key=True)
     user_id:Mapped[int]=mapped_column(ForeignKey("users.id"))
-    total_amount:Mapped[int]
+    total_amount:Mapped[float]
     total_products:Mapped[int]
     status:Mapped[str]=mapped_column(default="pending")
     order_placed_at:Mapped[datetime]
@@ -71,6 +76,7 @@ class OrderItems(Base):
     __tablename__="order_items"
     id:Mapped[int]=mapped_column(primary_key=True)
     order_id:Mapped[int]=mapped_column(ForeignKey("orders.id",ondelete="CASCADE"))
-    product_name:Mapped[str]
-    product_qty:Mapped[int]
+    product_id:Mapped[int]=mapped_column(ForeignKey("products.id", ondelete="SET NULL"))
     price:Mapped[float]
+    product_qty:Mapped[float]
+    total:Mapped[float]

@@ -1,8 +1,9 @@
-from pydantic import BaseModel,Field
+from pydantic import BaseModel, Field
+
 class User_address(BaseModel):
     house_no:str
     street_name:str
-    Pincode:str
+    postal_code:str
     Landmark:str|None=None
 
 class Register_user(BaseModel):
@@ -11,3 +12,12 @@ class Register_user(BaseModel):
     password:str
     email:str
     address:User_address
+
+class UpdateUser(BaseModel):
+    full_name:str|None = None
+    username:str|None = None
+    house_no:str|None =None
+    street_name:str|None =None
+    postal_code:str|None =None
+    Landmark:str|None=None
+    
