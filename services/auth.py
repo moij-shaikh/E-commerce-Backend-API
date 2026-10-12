@@ -21,12 +21,16 @@ from fastapi.security import OAuth2PasswordBearer
 get_jwt_token=OAuth2PasswordBearer(tokenUrl="/user/login",auto_error=False)
 
 
-def make_access_token(sub):
+def make_access_token(sub, role , exp):
+      if not exp:
+            exp=10
       payload={
             "sub":sub,
-            "exp":datetime.now(timezone.utc)+ timedelta(minutes=10),
+            "exp":datetime.now(timezone.utc)+ timedelta(minutes=exp),
             "token_id":str(secrets.token_urlsafe(16))
       }
+      if role:
+            payload["role"]=role
       try:
             access_token=jwt.encode(payload, jwt_key , algorithm=jwt_algo)
             return access_token

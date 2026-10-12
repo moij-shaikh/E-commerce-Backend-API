@@ -1,21 +1,19 @@
-from fastapi import APIRouter,Response,Request,HTTPException,Depends,Form,BackgroundTasks,status
+import secrets
+from redis_client import redis_py
+
 from database.database import get_db
-from database.models import Product ,User,Admin , Order,OrderItems
+from database.models import User,Admin , Order,OrderItems
+
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from schemas.product_schemas import Add_product
+
 from services.email import send_admin_email
-from services.auth import check_admin
-from datetime import timedelta , timezone,datetime
-from jose import jwt
-import os
-import secrets
-from dotenv import load_dotenv
-from redis_client import redis_py
-load_dotenv()
-jwt_key=os.getenv("JWT_SECRET_KEY")
-jwt_algo=os.getenv("JWT_ALGORITHM")
+from services.auth import check_admin , make_access_token
+
+from fastapi import APIRouter,Response,Request,HTTPException,Depends,Form,BackgroundTasks,status
+
+
 router=APIRouter(prefix="/admin")
 
 @router.post("/login",tags=["Admin"])
@@ -27,12 +25,7 @@ async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:
         if not db_admin:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Nothing Try Again")
         if password == db_admin.password:
-            payload={
-                "sub":str(username),
-                "role":"admin",
-                "exp":datetime.now(timezone.utc)+timedelta(minutes=30)
-            }
-            token=jwt.encode(payload,jwt_key,algorithm=jwt_algo)
+            token=make_access_token(username,role="admin",exp=30)
             session_id=secrets.token_urlsafe(32)
             redis_py.set(f"admin:{session_id}",token,ex=60*30)
             res.set_cookie(key="session_id",value=session_id,samesite="strict",path='/admin',httponly=True)
@@ -41,71 +34,6 @@ async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:
             }
     except SQLAlchemyError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not responding.")
-
-
-@router.get("/products",tags=["Admin / Products"])
-async def list_products(admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
-    try:
-        db_list=await db.scalars(select(Product))
-        product_list=db_list.all()
-        return [item for item in product_list]
-    except SQLAlchemyError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again later.")
-
-@router.post("/products",tags=["Admin / Products"])
-async def add_product(product:Add_product,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
-    try:
-        new_product=Product(name=product.name,price=product.price,is_available=product.is_available)
-        db.add(new_product)
-        await db.commit()
-        redis_py.delete("products:all_cash")
-    except SQLAlchemyError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is Down Try Again Later.")
-    return product
-
-@router.patch("/product",tags=["Admin / Products"])
-async def update_product(
-    product_id:int,
-    admin:dict=Depends(check_admin),
-    name:str|None=Form(default=None),
-    price:float|None=Form(default=None),
-    is_available:bool|None=Form(default=None),
-    db:AsyncSession=Depends(get_db)
-):
-    try:
-        db_product=await db.get(Product,product_id)
-        if db_product is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Product dose not exists try to refresh.")
-        if name is not None:
-            db_product.name=name
-        if price is not None:
-            db_product.price=price
-        if is_available is not None:
-            db_product.is_available=is_available
-        await db.commit()
-        redis_py.delete("products:all_cash")
-        return {
-            "message":"Product have been successfully Updated.",
-            "pro":db_product
-        }
-    except SQLAlchemyError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again Later.")
-
-@router.delete("/product",tags=["Admin / Products"])
-async def delete_products(product_id:int,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
-    try:
-        product= await db.get(Product,product_id)
-        if not product:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No product Found.")
-        await db.delete(product)
-        await db.commit()
-        redis_py.delete("products:all_cash")
-        return {"message":f"{product.name} was Deleted Successfully"}
-    except SQLAlchemyError:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down try again Later.")
 
 @router.post("/user/block",tags=["Admin / user"])
 async def block_user(user_id:int,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
@@ -151,10 +79,10 @@ async def delete_user(user_id:int,admin:dict=Depends(check_admin),db:AsyncSessio
         }
     except SQLAlchemyError:
         await db.rollback()
-
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database Server is Down Try again later")
 
 
+# order
 @router.get("/order",tags=["Admin / order"])
 async def show_order(db:AsyncSession=Depends(get_db),admin:dict=Depends(check_admin)):
     db_obj=await db.execute(select(Order,User).join(User,Order.user_id==User.id).where(Order.status.not_in("Delivered","cancelled")))
