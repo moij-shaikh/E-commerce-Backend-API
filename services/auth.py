@@ -21,7 +21,7 @@ from fastapi.security import OAuth2PasswordBearer
 get_jwt_token=OAuth2PasswordBearer(tokenUrl="/user/login",auto_error=False)
 
 
-def make_access_token(sub, role , exp):
+def make_access_token(sub, role=False , exp=False):
       if not exp:
             exp=10
       payload={
@@ -94,6 +94,7 @@ async def check_admin(session_id:str=Cookie(),db:AsyncSession=Depends(get_db))->
     except JWTError:
           raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Invalid Credential try again later")
     db_admin= await db.get(Admin,payload.get("sub"))
+    print(session_id)
     if not db_admin:
           raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Invalid Credential try again later")
     return {

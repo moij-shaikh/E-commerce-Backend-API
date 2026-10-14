@@ -19,5 +19,5 @@ class UpdateUser(BaseModel):
     house_no:str|None =None
     street_name:str|None =None
     postal_code:str|None =None
-    Landmark:str|None=None
+    landmark:str|None=None
     

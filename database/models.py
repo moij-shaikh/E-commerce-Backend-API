@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column,relationship
-from sqlalchemy import ForeignKey 
+from sqlalchemy import ForeignKey  , DateTime
 from datetime import datetime
 
 class Base(DeclarativeBase):
@@ -20,7 +20,7 @@ class User(Base):
     email:Mapped[str]
     is_verified:Mapped[bool]=mapped_column(default=False)
     is_blocked:Mapped[bool]=mapped_column(default=False)
-    is_account_closed:Mapped[bool]=mapped_column(default=True)
+    is_account_closed:Mapped[bool]=mapped_column(default=False)
     address:Mapped["Address"]=relationship("Address",back_populates="user")
 
 class Address(Base):
@@ -44,12 +44,13 @@ class Product(Base):
     price:Mapped[float]=mapped_column(nullable=False)
     is_available:Mapped[bool]=mapped_column(default=False)
 
+    cartitem:Mapped["CartItem"]=relationship("CartItem",back_populates="product")
 class Cart(Base):
     __tablename__="cart"
     id:Mapped[int]=mapped_column(primary_key=True)
     user_id:Mapped[int]=mapped_column(ForeignKey("users.id",ondelete="CASCADE"),unique=True)
     
-    items:Mapped[list["CartItem"]]=relationship("CartItem",back_populates="cart")
+    items:Mapped[list["CartItem"]]=relationship("CartItem",back_populates="cart",cascade="all,delete-orphan")
 
 class CartItem(Base):
     __tablename__="cart_items"
@@ -59,7 +60,8 @@ class CartItem(Base):
     quantity:Mapped[float]
     
     cart:Mapped["Cart"]=relationship("Cart",back_populates="items")
-    product:Mapped["Product"]=relationship("Product")
+    
+    product:Mapped["Product"]=relationship("Product", back_populates="cartitem")
 
 
 class Order(Base):
@@ -69,8 +71,9 @@ class Order(Base):
     total_amount:Mapped[float]
     total_products:Mapped[int]
     status:Mapped[str]=mapped_column(default="pending")
-    order_placed_at:Mapped[datetime]
+    order_placed_at:Mapped[datetime]=mapped_column(DateTime(timezone=True))
     is_paid:Mapped[bool]=mapped_column(default=False)
+    items:Mapped[list["OrderItems"]]=relationship("OrderItems")
         
 class OrderItems(Base):
     __tablename__="order_items"
@@ -80,3 +83,4 @@ class OrderItems(Base):
     price:Mapped[float]
     product_qty:Mapped[float]
     total:Mapped[float]
+    order:Mapped["Order"]=relationship("Order",back_populates="items")

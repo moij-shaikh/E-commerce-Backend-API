@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Request, Response,HTTPException , status, Depends , Form , File , UploadFile
+from fastapi import APIRouter,HTTPException , status, Depends , Form , File , UploadFile
 
-from schemas.product_schemas import  AddProduct, UpdateProduct
+from schemas.product_schemas import  Unit, UpdateProduct , Display_products
 from pathlib import Path
-from typing import Annotated
 from database.database import get_db
 from database.models import Product
 from sqlalchemy import select
@@ -11,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from services.auth import check_admin
 
-router=APIRouter(tags=["Product"])
+router=APIRouter(tags=["Admin - Product"], prefix="/admin")
 
 
 
@@ -31,14 +30,23 @@ async def valid_image(image:UploadFile):
 
 
 @router.post("/product")
-async def product__add(new_product:Annotated[AddProduct,Form()],image:UploadFile=File(...), admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
+async def product__add(
+    name: str = Form(),
+    unit: Unit = Form(),
+    quantity: int = Form(),
+    price: float = Form(),
+    is_available: bool = Form(),
+    image:UploadFile=File(...), 
+    admin:dict=Depends(check_admin),
+    db:AsyncSession=Depends(get_db)
+):
     image_path=await valid_image(image)
     db_product=Product(
-        unit=new_product.unit,
-        quantity=new_product.quantity,
-        name=new_product.name,
-        price=new_product.price,
-        is_available=new_product.is_available,
+        unit=unit,
+        quantity=quantity,
+        name=name,
+        price=price,
+        is_available=is_available,
         image=str(image_path)
         
     )
@@ -52,13 +60,13 @@ async def product__add(new_product:Annotated[AddProduct,Form()],image:UploadFile
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not working. ")
     
-@router.get("/product")
+@router.get("/product", response_model=list[Display_products])
 async def product__get_all(admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
     db_products= await db.scalars(select(Product))
     db_product_list= db_products.all()
     return db_product_list
 
-@router.get("/product/{id}")
+@router.get("/product/{id}", response_model=Display_products)
 async def product__get_all(id:int, admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
     db_product= await db.get(Product,id)
     if not db_product:
@@ -73,7 +81,9 @@ async def product__get_all(id:int, admin:dict=Depends(check_admin),db:AsyncSessi
     try:
         await db.delete(db_product)
         await db.commit()
-        return db_product
+        return {
+            "message":f"Id: {db_product.id}, Name: {db_product.name} was deleted successfully. "
+        }
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not working. ")
@@ -87,6 +97,9 @@ async def product__update_image(id:int,image:UploadFile=File(...), admin:dict=De
     try:
         db_product.image = str(image_path)
         await db.commit()
+        return{
+            "message":f"Id: {db_product.id} products image is updated successfully. "
+        }
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not working. ")
@@ -103,6 +116,10 @@ async def product__update_image(id:int,new_data:UpdateProduct,admin:dict=Depends
         setattr(db_product, filed , val)
     try:
         await db.commit()
+        return {
+            "message":f"Id: {db_product.id} products values are updated successfully. "
+            
+        }
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is not working. ")

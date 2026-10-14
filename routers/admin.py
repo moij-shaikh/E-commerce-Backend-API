@@ -20,7 +20,6 @@ router=APIRouter(prefix="/admin")
 async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:str=Form(),password:str=Form(),db:AsyncSession=Depends(get_db)):
     try:
         db_admin= await db.get(Admin,username)
-        ip=req.client.host
         # bg_task.add_task(send_admin_email,ip)
         if not db_admin:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Nothing Try Again")
@@ -85,7 +84,7 @@ async def delete_user(user_id:int,admin:dict=Depends(check_admin),db:AsyncSessio
 # order
 @router.get("/order",tags=["Admin / order"])
 async def show_order(db:AsyncSession=Depends(get_db),admin:dict=Depends(check_admin)):
-    db_obj=await db.execute(select(Order,User).join(User,Order.user_id==User.id).where(Order.status.not_in("Delivered","cancelled")))
+    db_obj=await db.execute(select(Order,User).join(User,Order.user_id==User.id).where(Order.status.not_in(["Delivered","cancelled"])))
     db_list=db_obj.all()
     data=[]
     for order,user in db_list:
@@ -191,9 +190,14 @@ async def cancel_order(order_id:int,db:AsyncSession=Depends(get_db),admin:dict=D
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was already Delivered")
         db_order.status="cancelled"
         await db.commit()
-        return {
-            "message":f"{db_order.id} was cancelled."
-        }
+        if db_order.is_paid :
+            return {
+                    "message":f"{db_order.id} was cancelled. And Refund is issued. "
+            }
+        else:
+            return {
+                "message":f"{db_order.id} was cancelled."
+            }
     except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database is down.")

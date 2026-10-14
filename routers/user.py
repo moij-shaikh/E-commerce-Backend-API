@@ -5,9 +5,8 @@ from redis_client import redis_py
 from fastapi import APIRouter ,Depends,Request,Response ,HTTPException,status,BackgroundTasks,Form
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user_schemas import Register_user  , UpdateUser 
-from schemas.order_schemas import show_history_items
 from database.database import get_db
-from database.models import User,Address ,Order , OrderItems
+from database.models import User,Address, Order
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -33,7 +32,6 @@ async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Re
           user=User(
                full_name=register_user.full_name,
                username=register_user.username,
-               ip_address=request.client.host,
                email=register_user.email,
                password=pass_hasher.hash(register_user.password)
                )
@@ -44,7 +42,7 @@ async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Re
                house_no=register_user.address.house_no,
                street_name=register_user.address.street_name,
                postal_code=register_user.address.postal_code,
-               Landmark=register_user.address.Landmark
+               landmark=register_user.address.Landmark
                )
           db.add(address)
           await db.commit()
@@ -171,52 +169,44 @@ async def update_user(
           await db.rollback()
           raise HTTPException(status_code=status.http_4,detail="Sorry our database is down. try again")
 
-@router.delete("",tags=["User"])
+@router.delete("/account",tags=["User"])
 async def delete_user(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
      try:
-          user=payload.get("sub")
+          user=int(payload.get("sub"))
           db_user=await db.get(User,user)
           if not db_user:
                raise HTTPException(detail="User Not Found",status_code=status.HTTP_404_NOT_FOUND)
-          username=db_user.username
-          await db.delete(db_user)
+          db_order= await db.scalars(select(Order).where(Order.user_id == db_user.id, Order.is_paid == False))
+          db_order_list=db_order.all()
+          if db_order_list:
+               order_ids=[
+                    order.id
+                    for order in db_order_list
+               ]
+               raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Some unpaid orders remains with ids {order_ids}")
+          
+          db_user.is_account_closed=True
           await db.commit()
           return {
-               "message":f"{username} has been deleted"
+               "message":f"{db_user.username} your account has been closed. "
           }
      except SQLAlchemyError:
           await db.rollback()
           raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Sorry our database is down. try again")
-
-@router.get("/order/history",tags=["User"])
-async def show_order_history(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
-     user_id=int(payload.get("sub"))
-     db_order=await db.scalars(select(Order).where(Order.user_id==user_id))
-     orders=db_order.all()
-
-     if not orders:
-          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No data found.")
-     return orders
-
-@router.get("/order/history/items",response_model=list[show_history_items],tags=["User"])
-async def get_order_items(order_id:int,payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
-     user_id=int(payload.get("sub"))
-     db_order=await db.scalar(select(Order).where(Order.id==order_id,Order.user_id==user_id))
-     if not db_order:
-          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Not found.")
-     db_items_obj=await db.scalars(select(OrderItems).where(OrderItems.order_id==order_id))
-     db_items=db_items_obj.all()
-     if not db_items:
-          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No data found.")
-     items=[]
-     for i in db_items:
-          items.append(
-               {
-                    "id":i.id,
-                    "name":i.product_name,
-                    "quantity":i.product_qty,
-                    "price":i.price,
-                    "total":i.price*i.product_qty
-               }
-          )
-     return items
+@router.post("/account",tags=["User"])
+async def delete_user(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
+     try:
+          user=int(payload.get("sub"))
+          db_user=await db.get(User,user)
+          if not db_user:
+               raise HTTPException(detail="account is not closed. ",status_code=status.HTTP_400_BAD_REQUEST)
+          if not db_user.is_account_closed:
+                         raise HTTPException(detail="User Not Found",status_code=status.HTTP_404_NOT_FOUND)
+          db_user.is_account_closed=False
+          await db.commit()
+          return {
+               "message":f"{db_user.username} your account has been re-opened. "
+          }
+     except SQLAlchemyError:
+          await db.rollback()
+          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Sorry our database is down. try again")

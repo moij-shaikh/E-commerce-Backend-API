@@ -1,4 +1,4 @@
-from pydantic import BaseModel ,Field , ConfigDict
+from pydantic import BaseModel ,Field
 from enum import Enum
 
 class Unit(str,Enum):
@@ -10,15 +10,7 @@ class Unit(str,Enum):
     METER="meter"
     PACK="pack"
     BOX="box"
-    
 
-
-class AddProduct(BaseModel):
-    name:str
-    unit:Unit
-    quantity:float
-    price:float=Field(gt=0)
-    is_available:bool=False
     
 class UpdateProduct(BaseModel):
     name:str|None=None
@@ -31,8 +23,10 @@ class Display_products(BaseModel):
     id:int
     name:str
     price:float
+    quantity:float
+    image:str
     is_available:bool
-    model_config=ConfigDict(from_attributes=True)
+    
 
 class Cart_items(BaseModel):
     id:int
