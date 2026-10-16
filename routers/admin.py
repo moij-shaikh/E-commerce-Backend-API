@@ -2,8 +2,7 @@ import secrets
 from redis_client import redis_py
 
 from database.database import get_db
-from database.models import User,Admin , Order,OrderItems
-
+from database.models import User,Admin , Order,OrderItems , PaymentMethod , OrderStatus
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +21,7 @@ async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:
         db_admin= await db.get(Admin,username)
         # bg_task.add_task(send_admin_email,ip)
         if not db_admin:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Nothing Try Again")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Admin found. ")
         if password == db_admin.password:
             token=make_access_token(username,role="admin",exp=30)
             session_id=secrets.token_urlsafe(32)
@@ -137,19 +136,22 @@ async def get_order_items(order_id:int,db:AsyncSession=Depends(get_db),admin:dic
     return data
 
 @router.post("/delivery",tags=["Admin / delivery"])
-async def manage_delivery(order_id:int,order_status:str,db:AsyncSession=Depends(get_db),admin:dict=Depends(check_admin)):
-    allowed_status=["Pending","Out_for_Delivery","Delivered","cancelled"]
+async def manage_delivery(order_id:int,order_status:OrderStatus,db:AsyncSession=Depends(get_db),admin:dict=Depends(check_admin)):
     try:
-        if order_status not in allowed_status:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Enter correct Status.")
-
         order= await db.get(Order,int(order_id))
         if not order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Order not found.")
-        if order.status == "Delivered" :
+        if order.status == OrderStatus.DELIVERED :
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was Delivered already.")
-        if order.status == "cancelled" :
+        if order.status == OrderStatus.CANCELLED :
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was cancelled already.")
+        if order.status ==OrderStatus.PENDING:
+            if order_status not in {OrderStatus.CANCELLED, OrderStatus.OUT_FOR_DELIVERY}:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pending orders status can be either cancelled or out_for_delivery. ")
+        elif order.status ==OrderStatus.OUT_FOR_DELIVERY: 
+            if order_status not in {OrderStatus.CANCELLED , OrderStatus.DELIVERED}:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order can be cancelled or delivery.  ")
+                   
         order.status=order_status
         await db.commit()
         return "Updated!"
@@ -158,21 +160,25 @@ async def manage_delivery(order_id:int,order_status:str,db:AsyncSession=Depends(
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Database Server is Down Try again later")
 
 @router.post("/payment",tags=["Admin / delivery"])
-async def user_payment(order_id:int,payment_status:str,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
-    allowed_status=["Pending","Paid"]
+async def user_payment(order_id:int,admin:dict=Depends(check_admin),db:AsyncSession=Depends(get_db)):
     try:
-        if payment_status not in allowed_status:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Select Correct response.")
         db_order=await db.get(Order,order_id)
         if not db_order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Order Not Found.")
-        if payment_status != "Paid":
-            db_order.is_paid=False
-        if payment_status == "Paid":
-            db_order.is_paid=True
+        if db_order.status == OrderStatus.CANCELLED:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order is cancelled.")
+
+        if db_order.is_paid :
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Payment is already done")
+        if db_order.payment_method ==PaymentMethod.COD:
+            if db_order.status != OrderStatus.DELIVERED:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="COD payment can only be confirmed after delivery. ")
+                
+            db_order.is_paid= True
+        
         await db.commit()
         return {
-            "message":f"Payment was {payment_status}."
+            "message":"Payment confirmed successfully. "
         }
     except SQLAlchemyError:
             await db.rollback()
@@ -184,9 +190,9 @@ async def cancel_order(order_id:int,db:AsyncSession=Depends(get_db),admin:dict=D
         db_order=await db.get(Order,order_id)
         if not db_order:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Order Not Found.")
-        if db_order.status=="cancelled":
+        if db_order.status==OrderStatus.CANCELLED:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was already cancelled")
-        if db_order.status=="Delivered":
+        if db_order.status==OrderStatus.DELIVERED:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Order was already Delivered")
         db_order.status="cancelled"
         await db.commit()

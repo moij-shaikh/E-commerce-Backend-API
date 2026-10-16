@@ -15,7 +15,7 @@ def send_email(to,token):
     msg["Subject"]="Verify Email"
     msg.set_content(f"Go to http://127.0.0.1:8000/user/verify/email and enter this code: {token}")
     msg.add_alternative(f"""
-    <a href=f'http://127.0.0.1:8000/user/verify/email?token={token}'>Click here to verify </a>
+    <a href='http://127.0.0.1:8000/user/verify/email?token={token}'>Click here to verify </a>
     """,
     subtype="html")
     smtp=smtplib.SMTP_SSL("smtp.gmail.com",465)

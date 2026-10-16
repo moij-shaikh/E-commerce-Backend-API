@@ -2,6 +2,7 @@ import logging
 import secrets
 
 from redis_client import redis_py
+from redis.exceptions import RedisError
 from fastapi import APIRouter ,Depends,Request,Response ,HTTPException,status,BackgroundTasks,Form
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user_schemas import Register_user  , UpdateUser 
@@ -23,11 +24,10 @@ async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Re
      existing=await db.scalar(select(User).where(User.username==register_user.username))
      if existing:
           raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Username is taken Try Another one.")
-     existing= await db.scalar(select(User).where(User.email==register_user.email))
+     existing= await db.scalar(select(User).where(User.email == register_user.email))
      if existing:
           raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="An User is present with same email.")
-     if request.client.host is None:
-          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Server can not identify you as real user. If using vpn try again without vpn")
+     token=str(secrets.token_urlsafe(32))
      try:
           user=User(
                full_name=register_user.full_name,
@@ -45,19 +45,27 @@ async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Re
                landmark=register_user.address.Landmark
                )
           db.add(address)
-          await db.commit()
 
           logging.info("%s is now registered",user.username)
-          token=str(secrets.token_urlsafe(32))
           # bg_task.add_task(send_email,user.email,token)
           redis_py.set(f"email_verification_token:{token}",user.id,ex=60*7)
+          
+          await db.commit()
+          
           return {
                "message":"Account was successfully Creates. Please Verify the Email ",
                "t":token
           }
      except SQLAlchemyError:
           await db.rollback()
+          try:
+               redis_py.delete(f"email_verification_token:{token}")
+          except RedisError:
+               pass
           raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Sorry our database is down. try again")
+     except RedisError:
+          await db.rollback()
+          raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,detail="Email Verification is not Available. Try again later.")
 
 @router.get("/verify/email",tags=["Auth"])
 async def verify_user_email(token:str,db:AsyncSession=Depends(get_db)):
@@ -65,19 +73,23 @@ async def verify_user_email(token:str,db:AsyncSession=Depends(get_db)):
      if user_id is None:
           raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid link")
      try:
+          user_id=int(user_id)
           user=await db.get(User,user_id)
           if not user:
                raise HTTPException(detail="User Not Found",status_code=status.HTTP_404_NOT_FOUND)
+          redis_py.delete(f"email_verification_token:{token}")
+          
           user.is_verified=True
           await db.commit()
-          redis_py.delete(f"email_verification_token:{token}")
           return{
                "message":"Successfully Verified"
           }
      except SQLAlchemyError:
           await db.rollback()
           raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Sorry our database is down. try again")
-
+     except RedisError:
+          await db.rollback()
+          raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,detail="Email Verification is not Available. Try again later.")
 
 @router.post("/login",tags=["User"])
 async def user_login(res:Response,user_data:OAuth2PasswordRequestForm=Depends(),db:AsyncSession=Depends(get_db)):
@@ -85,31 +97,44 @@ async def user_login(res:Response,user_data:OAuth2PasswordRequestForm=Depends(),
      username=user_data.username
      user= await db.scalar(select(User).where(User.username==username))
      if not user:
-          raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="please verify you Register")
-     if not pass_hasher.verify(password,user.password):
-          raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="please verify your password")
+          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No user found.")
+ 
+     if not pass_hasher.verify(password,user.password) or not user:
+          raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid username or password.")
      if not user.is_verified :
                token=secrets.token_urlsafe(32)
-               redis_py.set(f"email_verification_token:{token}",user.id,ex=60*7)
-               return {
-                    'email:token':token
-               }
+               try:
+                    redis_py.set(f"email_verification_token:{token}",user.id,ex=60*7)
+                    return {
+                         'email:token':token
+                    }
+               except RedisError:
+                    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Verification service is unavailable")
      if  user.is_blocked:
           raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="You have been blocked Please Contact or email to us . ")
+     if user.is_account_closed:
+          raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="your account is closed. ")
+          
      access_token=make_access_token(str(user.id))
      refresh_token=make_refresh_token(str(user.id))
-     res.set_cookie(key="refresh_token",value=refresh_token,samesite='strict',httponly=True,path="/user/auth/")
-     redis_py.set(f"refresh_token:{refresh_token}",user.id,ex=60*60*24*7)
-     return {
-          "token_type":"bearer",
-          "access_token":access_token
-     }
+     res.set_cookie(key="refresh_token",value=refresh_token,samesite='strict',httponly=True,path="/user/auth/",max_age=60*60*24*7)
+     try:
+          redis_py.set(f"refresh_token:{refresh_token}",user.id,ex=60*60*24*7)
+          return {
+                    "token_type":"bearer",
+                    "access_token":access_token
+               }
+     except RedisError:
+          raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Login service is down.")
+     
+     
 
 
 @router.post("/auth/logout",tags=["Auth"])
 def user_logout(res:Response,req:Request,payload:dict=Depends(get_current_user)):
      refresh=req.cookies.get("refresh_token")
      token_id=payload.get("token_id")
+     exp=payload.get("exp")
      if not refresh:
           raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="User already Logout.")
      redis_user=redis_py.get(f"refresh_token:{refresh}")
@@ -167,7 +192,7 @@ async def update_user(
           }
      except SQLAlchemyError:
           await db.rollback()
-          raise HTTPException(status_code=status.http_4,detail="Sorry our database is down. try again")
+          raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Sorry our database is down. try again")
 
 @router.delete("/account",tags=["User"])
 async def delete_user(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):

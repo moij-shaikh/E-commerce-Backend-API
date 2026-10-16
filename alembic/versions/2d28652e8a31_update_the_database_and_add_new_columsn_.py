@@ -1,8 +1,8 @@
-"""Updated database
+"""Update the database and add new columsn change datatypes etc
 
-Revision ID: 25c745fc2d88
+Revision ID: 2d28652e8a31
 Revises: 
-Create Date: 2026-10-12 21:44:48.325362
+Create Date: 2026-10-16 14:34:33.450650
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '25c745fc2d88'
+revision: str = '2d28652e8a31'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -62,9 +62,10 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('total_amount', sa.Double(), nullable=False),
     sa.Column('total_products', sa.Integer(), nullable=False),
-    sa.Column('status', sa.String(), nullable=False),
-    sa.Column('order_placed_at', sa.DateTime(), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', name='orderstatus'), nullable=False),
+    sa.Column('order_placed_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('is_paid', sa.Boolean(), nullable=False),
+    sa.Column('payment_method', sa.Enum('COD', name='paymentmethod'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -90,7 +91,7 @@ def upgrade() -> None:
     op.create_table('order_items',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('order_id', sa.Integer(), nullable=False),
-    sa.Column('product_id', sa.Integer(), nullable=False),
+    sa.Column('product_id', sa.Integer(), nullable=True),
     sa.Column('price', sa.Double(), nullable=False),
     sa.Column('product_qty', sa.Double(), nullable=False),
     sa.Column('total', sa.Double(), nullable=False),

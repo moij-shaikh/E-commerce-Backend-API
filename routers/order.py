@@ -1,6 +1,6 @@
 from fastapi import APIRouter ,HTTPException , status, Depends , Form
 from database.database import get_db
-from database.models import Order, OrderItems, Product , Cart , CartItem
+from database.models import Order, OrderItems, Product , Cart , CartItem , OrderStatus 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,15 +61,15 @@ async def order__new(
     db:AsyncSession=Depends(get_db)
 ):
     user_id=int(payload.get("sub"))
-    is_product= await db.scalar(select(Product).where(Product.id == product_id).with_for_update())
-    if not is_product:
+    db_product= await db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+    if not db_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Product Found. ")
-    if not is_product.is_available:
+    if not db_product.is_available:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Product is not available. ")
-    if is_product.quantity < product_qty:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Product is Stock not available.we only have {is_product.quantity}  ")
+    if db_product.quantity < product_qty:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Product is Stock not available.we only have {db_product.quantity}  ")
         
-    total_amount=is_product.price * product_qty
+    total_amount=db_product.price * product_qty
     new_order=Order(
         user_id=user_id,
         total_amount=total_amount,
@@ -84,13 +84,13 @@ async def order__new(
         order_items=OrderItems(
             order_id=new_order.id,
             product_id=product_id,
-            price=is_product.price,
+            price=db_product.price,
             product_qty=product_qty,
             total=total_amount
         )
         
         db.add(order_items)
-        is_product.quantity -= product_qty
+        db_product.quantity -= product_qty
         await db.commit()
         return {
             "message":"Order is placed. "
@@ -154,15 +154,15 @@ async def order__checkout(payload:dict=Depends(get_current_user),db:AsyncSession
         )
         product.quantity -= item.quantity
     db.add_all(new_order_items)
-    # try:
-    await db.delete(db_cart)
-    await db.commit()
-    return{
-        "message":"order placed successfully. "
-    }
-    # except SQLAlchemyError:
-    #     await db.rollback()
-    #     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Oder could not be placed. ")
+    try:
+        await db.delete(db_cart)
+        await db.commit()
+        return{
+            "message":"order placed successfully. "
+        }
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Oder could not be placed. ")
         
     
 
@@ -170,13 +170,34 @@ async def order__checkout(payload:dict=Depends(get_current_user),db:AsyncSession
 @router.delete("/order/{id}")
 async def order__delete(id:int, payload:dict=Depends(get_current_user), db:AsyncSession=Depends(get_db)):
     user_id=int(payload.get("sub"))
-    db_order= await db.scalar(select(Order).where(Order.id == id, Order.user_id == user_id))
+    db_order= await db.scalar(select(Order).where(Order.id == id, Order.user_id == user_id).with_for_update())
     if not db_order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Order Found. ")
-    if db_order.status != "pending":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="you can not delete this order. ")
-    db_order.status="cancel"
-    
+    if db_order.status != OrderStatus.PENDING:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only pending order can be canceled. ")
+    db_order.status=OrderStatus.CANCELLED
+    db_order_items= await db.scalars(select(OrderItems).where(OrderItems.order_id == db_order.id))
+    db_order_items_list=db_order_items.all()
+    if not db_order_items_list:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No items found. ")
+    product_ids={
+        item.product_id
+        for item in db_order_items_list
+    }
+    if not product_ids:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No items ids found. ")
+    db_products= await db.scalars(select(Product).where(Product.id.in_(product_ids)).with_for_update())
+    db_products_list=db_products.all()
+    if not db_products_list:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Products found. ")
+    products={
+        product.id:product
+        for product in db_products_list
+    }
+    for item in db_order_items_list:
+        product= products.get(item.product_id)
+        if product is not None:
+            product.quantity += item.product_qty
     try:
         await db.commit()
         if db_order.is_paid:

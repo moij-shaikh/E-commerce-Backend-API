@@ -2,7 +2,7 @@ from pwdlib import PasswordHash
 from redis_client import redis_py
 
 from database.database import get_db
-from database.models import Admin
+from database.models import Admin, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -50,33 +50,47 @@ def make_refresh_token(sub):
 
 
 
-def get_current_user(token:str=Depends(get_jwt_token))->dict:
-    if not token:
-          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Please login First.")
-    try:
-        payload=jwt.decode(token,jwt_key,algorithms=[jwt_algo])
-    except JWTError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Try to login")
-    is_blocked=redis_py.get(f"blocked_access_token:{payload.get("token_id")}")
-    if is_blocked is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Please Login First")
-    user=payload.get("sub")
-    if not user:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Please Try again later")
-    return payload
+async def get_current_user(token:str=Depends(get_jwt_token), db:AsyncSession=Depends(get_db))->dict:
+      if not token:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Please login First.")
+      try:
+          payload=jwt.decode(token,jwt_key,algorithms=[jwt_algo])
+      except JWTError:
+              raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Login first. ")
+      is_blocked=redis_py.get(f"blocked_access_token:{payload.get("token_id")}")
+      if is_blocked is not None:
+          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Please Login First")
+      user=int(payload.get("sub"))
+      if not user:
+              raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Please Try again later")
+      db_user= await db.get(User,user)
+      if not db_user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No user found. ")
+      if db_user.is_blocked:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="you have been blocked. ")
+      if db_user.is_account_closed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account is closed. ")
+      return payload
 
-def generate_access_token_from_refresh_token(refresh_token:str=Cookie())->str:
+async def generate_access_token_from_refresh_token(refresh_token:str=Cookie(), db:AsyncSession=Depends(get_db))->str:
       if not refresh_token:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Login First. cookie")
-      redis_token= redis_py.get(f"refresh_token:{refresh_token}")
-      if not redis_token or redis_token is None:
+      redis_user_id= redis_py.get(f"refresh_token:{refresh_token}")
+      if not redis_user_id or redis_user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Login First. redis ")
             
       try:
-            payload=jwt.decode(redis_token , jwt_key, algorithms=[jwt_algo])
-            if str(redis_token) != str(payload.get("sub")):
+            payload=jwt.decode(refresh_token , jwt_key, algorithms=[jwt_algo])
+            if str(redis_user_id) != str(payload.get("sub")):
                   raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid token.")
-            access_token=make_access_token(payload.get("sub"))
+            db_user= await db.get(User,int(redis_user_id))
+            if not db_user:
+                  raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No user found. ")
+            if db_user.is_blocked:
+                  raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="you have been blocked. ")
+            if db_user.is_account_closed:
+                  raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="account is closed. ")
+            access_token=make_access_token(str(payload.get("sub")))
             return access_token
       except JWTError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Login First. ")

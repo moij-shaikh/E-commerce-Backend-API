@@ -1,7 +1,18 @@
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column,relationship
-from sqlalchemy import ForeignKey  , DateTime
+from sqlalchemy import ForeignKey  , DateTime , Enum as sqlenum
 from datetime import datetime
 
+from enum import Enum
+
+class OrderStatus(str,Enum):
+    PENDING='pending'
+    OUT_FOR_DELIVERY='out_for_delivery'
+    DELIVERED='delivered'
+    CANCELLED=' cancelled'
+
+class PaymentMethod(str,Enum):
+    COD='cod'
+    
 class Base(DeclarativeBase):
     pass
 
@@ -70,16 +81,17 @@ class Order(Base):
     user_id:Mapped[int]=mapped_column(ForeignKey("users.id"))
     total_amount:Mapped[float]
     total_products:Mapped[int]
-    status:Mapped[str]=mapped_column(default="pending")
+    status:Mapped[OrderStatus]=mapped_column(sqlenum(OrderStatus),default=OrderStatus.PENDING)
     order_placed_at:Mapped[datetime]=mapped_column(DateTime(timezone=True))
     is_paid:Mapped[bool]=mapped_column(default=False)
-    items:Mapped[list["OrderItems"]]=relationship("OrderItems")
+    payment_method:Mapped[PaymentMethod]=mapped_column( sqlenum(PaymentMethod), default=PaymentMethod.COD)
+    items:Mapped[list["OrderItems"]]=relationship("OrderItems",back_populates="order")
         
 class OrderItems(Base):
     __tablename__="order_items"
     id:Mapped[int]=mapped_column(primary_key=True)
     order_id:Mapped[int]=mapped_column(ForeignKey("orders.id",ondelete="CASCADE"))
-    product_id:Mapped[int]=mapped_column(ForeignKey("products.id", ondelete="SET NULL"))
+    product_id:Mapped[int]=mapped_column(ForeignKey("products.id", ondelete="SET NULL"),nullable=True)
     price:Mapped[float]
     product_qty:Mapped[float]
     total:Mapped[float]
