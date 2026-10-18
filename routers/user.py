@@ -3,7 +3,7 @@ import secrets
 
 from redis_client import redis_py
 from redis.exceptions import RedisError
-from fastapi import APIRouter ,Depends,Request,Response ,HTTPException,status,BackgroundTasks,Form
+from fastapi import APIRouter ,Depends,Request,Response ,HTTPException,status,Form
 from fastapi.security import OAuth2PasswordRequestForm
 from schemas.user_schemas import Register_user  , UpdateUser 
 from database.database import get_db
@@ -13,14 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.email import send_email
 from services.auth import pass_hasher, get_current_user , make_access_token , make_refresh_token , generate_access_token_from_refresh_token
 
 
 router=APIRouter(prefix="/user")
 
 @router.post("",tags=["User"])
-async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Register_user,db:AsyncSession=Depends(get_db)):
+async def register_user(request:Request,register_user:Register_user,db:AsyncSession=Depends(get_db)):
      existing=await db.scalar(select(User).where(User.username==register_user.username))
      if existing:
           raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Username is taken Try Another one.")
@@ -47,14 +46,13 @@ async def register_user(bg_task:BackgroundTasks,request:Request,register_user:Re
           db.add(address)
 
           logging.info("%s is now registered",user.username)
-          # bg_task.add_task(send_email,user.email,token)
+          job = await request.app.state.arq.enqueue_job("send_email",user.email,token)
           redis_py.set(f"email_verification_token:{token}",user.id,ex=60*7)
           
           await db.commit()
           
           return {
-               "message":"Account was successfully Creates. Please Verify the Email ",
-               "t":token
+               "message":"Account was successfully Creates. Please Verify the Email "
           }
      except SQLAlchemyError:
           await db.rollback()
@@ -92,7 +90,7 @@ async def verify_user_email(token:str,db:AsyncSession=Depends(get_db)):
           raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,detail="Email Verification is not Available. Try again later.")
 
 @router.post("/login",tags=["User"])
-async def user_login(res:Response,user_data:OAuth2PasswordRequestForm=Depends(),db:AsyncSession=Depends(get_db)):
+async def user_login(req:Request,res:Response,user_data:OAuth2PasswordRequestForm=Depends(),db:AsyncSession=Depends(get_db)):
      password=user_data.password
      username=user_data.username
      user= await db.scalar(select(User).where(User.username==username))
@@ -105,8 +103,9 @@ async def user_login(res:Response,user_data:OAuth2PasswordRequestForm=Depends(),
                token=secrets.token_urlsafe(32)
                try:
                     redis_py.set(f"email_verification_token:{token}",user.id,ex=60*7)
+                    job = await req.app.state.arq.enqueue_job("send_email",user.email,token)
                     return {
-                         'email:token':token
+                         'message':"verify email first. "
                     }
                except RedisError:
                     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Verification service is unavailable")
@@ -128,8 +127,6 @@ async def user_login(res:Response,user_data:OAuth2PasswordRequestForm=Depends(),
           raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Login service is down.")
      
      
-
-
 @router.post("/auth/logout",tags=["Auth"])
 def user_logout(res:Response,req:Request,payload:dict=Depends(get_current_user)):
      refresh=req.cookies.get("refresh_token")

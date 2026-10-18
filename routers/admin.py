@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.email import send_admin_email
 from services.auth import check_admin , make_access_token
 
 from fastapi import APIRouter,Response,Request,HTTPException,Depends,Form,BackgroundTasks,status
@@ -19,9 +18,18 @@ router=APIRouter(prefix="/admin")
 async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:str=Form(),password:str=Form(),db:AsyncSession=Depends(get_db)):
     try:
         db_admin= await db.get(Admin,username)
-        # bg_task.add_task(send_admin_email,ip)
         if not db_admin:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Admin found. ")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Admin found. ")
+        if password != db_admin.password:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid credentials.  ")
+            
+        try:
+            job = await req.app.state.arq.enqueue_job("send_admin_email")
+            if job is None:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Background service is not available.")
+        except Exception :
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Background service is not available.")
+        
         if password == db_admin.password:
             token=make_access_token(username,role="admin",exp=30)
             session_id=secrets.token_urlsafe(32)
