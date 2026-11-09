@@ -15,11 +15,11 @@ router=APIRouter(tags=["Admin - Product"], prefix="/admin")
 
 
 async def valid_image(image:UploadFile):
-    image_dir=Path("Upload/Image")
+    image_dir=Path("static/product")
     image_dir.mkdir(parents=True,exist_ok=True)
     supported_image={"image/jpeg","image/png"}
     if image.content_type not in supported_image:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Image is not supported.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Image is not supported.")
     image_path=image_dir / image.filename
     
     if image_path.exists():
@@ -36,6 +36,7 @@ async def product__add(
     quantity: int = Form(),
     price: float = Form(),
     is_available: bool = Form(),
+    description:str=Form(max_length=100),
     image:UploadFile=File(...), 
     admin:dict=Depends(check_admin),
     db:AsyncSession=Depends(get_db)
@@ -47,7 +48,8 @@ async def product__add(
         name=name,
         price=price,
         is_available=is_available,
-        image=str(image_path)
+        image=str(image_path),
+        description=description
         
     )
     try:
@@ -107,7 +109,7 @@ async def product__update_image(id:int,image:UploadFile=File(...), admin:dict=De
 
 
 @router.patch("/product/{id}")
-async def product__update_image(id:int,new_data:UpdateProduct,admin:dict=Depends(check_admin) , db:AsyncSession=Depends(get_db)):
+async def product__update(id:int,new_data:UpdateProduct,admin:dict=Depends(check_admin) , db:AsyncSession=Depends(get_db)):
     db_product= await db.get(Product,id)
     if not db_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Product found.")

@@ -52,7 +52,7 @@ async def register_user(request:Request,register_user:Register_user,db:AsyncSess
           await db.commit()
           
           return {
-               "message":"Account was successfully Creates. Please Verify the Email "
+               "message":f"Account was successfully Creates. Please Verify the Email, {token} "
           }
      except SQLAlchemyError:
           await db.rollback()

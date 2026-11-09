@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Coffee Website</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="description" content="This is an trial Coffee Website" />
+    <meta name="author" content="MS" />
+    <meta name="Robots" content="index,follow" />
+    <meta name="theme-color" content="#F5F3ED" />
+    <script src="main.js" defer></script>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .cart_section {
+        width: 80%;
+        margin: 40px auto;
+        min-height: 400px;
+      }
+      .cart_item {
+          padding: 15px;
+          margin-bottom: 15px;
+          border-bottom: 1px solid gray;
+      }
+      .cart_item h3 {
+          margin-bottom: 8px;
+      }
+      .cart_item p {
+          margin: 5px 0;
+      }
+      .remove_item {
+          padding: 6px 12px;
+          cursor: pointer;
+      }
+      #cart_total {
+          margin-top: 25px;
+          text-align: right;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="navbar_sec">
+      <img
+        class="logo"
+        src="images/logo.svg"
+        alt="Logo"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
+      <nav class="nav_links">
+        <a class="links" href="#hero">Home</a>
+        <a class="links" href="#about-us">About</a>
+        <a class="links" href="#menu_section">Menu</a>
+      </nav>
+
+      <div class="account_settings">
+        <svg
+          onclick="show_hide_settings_panel()"
+          width="100%"
+          height="100%"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.3163 19.4384C5.92462 18.0052 7.34492 17 9 17H15C16.6551 17 18.0754 18.0052 18.6837 19.4384M16 9.5C16 11.7091 14.2091 13.5 12 13.5C9.79086 13.5 8 11.7091 8 9.5C8 7.29086 9.79086 5.5 12 5.5C14.2091 5.5 16 7.29086 16 9.5ZM22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <div class="Settings_panel">
+          <div class="user_profile">
+            <h1 class="user_logo">IM</h1>
+            <div>
+              <h4>Iron man</h4>
+              <p>tony@stark.Come</p>
+            </div>
+          </div>
+
+          <div class="user_address">
+            <h5>Address:</h5>
+            <div>
+              <p>Somethings lor</p>
+              <h5>PINCODE:</h5>
+              <p>44040</p>
+            </div>
+          </div>
+          <aside class="Settings_panel_cta">
+            <button class="change_address_btn">Change Address</button>
+            <button class="logout_user_btn">Log Out</button>
+            <button class="delete_user_btn">Delete Account</button>
+          </aside>
+        </div>
+      </div>
+    </header>
+    <main class="cart_section">
+      <h1>Your Shopping Cart</h1>
+      <div id="cart_items">
+      </div>
+      <div class="cart_total">
+          <h3>Total: <span id="total_amount">0</span></h3>
+          <button class="primary_btn" id="checkout_btn"> Proceed to Checkout </button>
+      </div>
+    </main>
+    <footer class="footer-sec">
+      <div class="footer_content">
+        <div class="footer_brand">
+          <img class="logo" src="static/images/logo.svg" alt="Logo" />
+          <p>Your daily cozy coffee ritual.</p>
+        </div>
+
+        <nav class="footer_links">
+          <a class="links" href="#hero">Home</a>
+          <a class="links" href="#about-us">About</a>
+          <a class="links" href="#menu_section">Menu</a>
+        </nav>
+      </div>
+
+      <div class="footer_bottom">
+        <p>&copy; 2026 Morning Brew. All rights reserved.</p>
+      </div>
+    </footer>
+  </body>
+  <script>
+    async function load_cart() {
+      const token= sessionStorage.getItem("access_token")
+      if(!token){
+        alert("Login")
+      }
+      const req = await  fetch("/cart", {
+        method:"GET",
+        headers:{
+          "Authorization":"Bearer"+token
+        }
+      })
+      const res=  await req.json()
+      if(!req.ok){
+        alert(res.detail)
+      }
+    const cart_items = document.getElementById("cart_items");
+    const cart_total = document.getElementById("cart_total");
+    cart_items.innerHTML="";
+    if(!req.ok){
+      cart_items.textContent= res.detail;
+    }
+    res.items.forEach((item)=>{
+      const div = document.createElement("div");
+      div.className="cart_item";
+      div.innerHTML = `
+            <h3>${item.name}</h3>
+            <p>Price: ${item.price} / ${item.unit}</p>
+            <p>Quantity: ${item.quantity}</p>
+            <h4>Subtotal: ${item.subtotal}</h4>
+
+            <button class="remove_item" data-id="${item.id}">
+                Remove
+            </button>
+        `;
+        cart_items.appendChild(div);
+        const remove_btn = div.querySelector(".remove_item");
+        remove_btn.addEventListener("click", async function() {
+            await remove_cart_item(item.id);
+        });
+    })
+        document.getElementById("total_amount").textContent = result.total_amount;
+    }
+    load_cart();
+    async function remove_cart_item(item_id) {
+      const token= sessionStorage.getItem("access_token")
+      if(!token){
+        alert("Login")
+      }
+      const response = await fetch(`/cart/items/${item_id}`,{
+        method:"DELETE",
+        headers:{
+          "Authorization":"Bearer"+token
+        }
+      })
+      const result = await response.json();
+      if (response.ok) {
+          load_cart();
+      }
+      else {
+          alert(result.detail);
+      }
+  }
+  </script>
+</html>

@@ -36,7 +36,6 @@ async def cart__get_cart(payload:dict=Depends(get_current_user),db:AsyncSession=
         )
     }
     return display_list
-    
 
 @router.post("/cart")
 async def cart__new(product_id:int=Form(gt=0), product_qty:int=Form(gt=0),payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
@@ -87,7 +86,6 @@ async def cart__delete(payload:dict=Depends(get_current_user), db:AsyncSession=D
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Internal Server error. ")
         
-
 @router.delete("/cart/items/{id}")
 async def cart__delete(id:int,payload:dict=Depends(get_current_user), db:AsyncSession=Depends(get_db)):
     user_id=int(payload.get("sub"))

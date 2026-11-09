@@ -17,6 +17,7 @@ class UpdateProduct(BaseModel):
     unit:Unit|None=None
     quantity:float|None=None
     price:float|None=Field(default=None,gt=0)
+    description:str=Field(max_length=100)
     is_available:bool|None=None
 
 class Display_products(BaseModel):

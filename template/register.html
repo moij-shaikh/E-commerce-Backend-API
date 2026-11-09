@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Register</title>
+    <meta charset="UTF-8">
+    <style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+
+    .register_container {
+        background: #f4f1ea;
+        padding: 24px;
+        border: 1px solid #3a5a40;
+        border-radius: 12px;
+        width: 320px;
+    }
+
+    h2, h3 {
+        color: #3a5a40;
+        text-align: center;
+    }
+
+    input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 12px;
+        box-sizing: border-box;
+    }
+
+    button {
+        width: 100%;
+        padding: 10px;
+        background: #a3b18a;
+        border: 1px solid #3a5a40;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    </style>
+</head>
+<body>
+    <div class="register_container">
+        <h2>Register</h2>
+        <form id="register_form">
+            <input type="text" id="full_name" placeholder="Full Name" required>
+            <input type="text" id="username" placeholder="Username" required>
+            <input type="email" id="email" placeholder="Email" required>
+            <input type="password" id="password" placeholder="Password" required>
+            <h3>Address Details</h3>
+            <input type="text" id="house_no" placeholder="House Number" required>
+            <input type="text" id="street_name" placeholder="Street Name" required>
+            <input type="text" id="postal_code" placeholder="Postal Code" required>
+            <input type="text" id="landmark" placeholder="Landmark">
+            <button type="submit">Register</button>
+        </form>
+        <p id="register_message"></p>
+    </div>
+
+</body>
+<script>
+    const form = document.getElementById("register_form");
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const data = {
+            full_name: document.getElementById("full_name").value,
+            username: document.getElementById("username").value,
+            email: document.getElementById("email").value,
+            password: document.getElementById("password").value,
+
+            address: {
+                house_no: document.getElementById("house_no").value,
+                street_name: document.getElementById("street_name").value,
+                postal_code: document.getElementById("postal_code").value,
+                Landmark: document.getElementById("landmark").value
+            }
+        };
+
+        const response = await fetch("/user", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.message){
+            document.getElementById("register_message").textContent = result.message;
+        }
+        else{
+            document.getElementById("register_message").textContent =result.detail;
+
+        }
+    });
+</script>
+</html>

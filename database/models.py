@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase,Mapped,mapped_column,relationship
-from sqlalchemy import ForeignKey  , DateTime , Enum as sqlenum
+from sqlalchemy import ForeignKey  , DateTime  , String, Enum as sqlenum
 from datetime import datetime
 
 from enum import Enum
@@ -53,14 +53,15 @@ class Product(Base):
     quantity:Mapped[float]
     name:Mapped[str]=mapped_column(nullable=False,unique=True,index=True)
     price:Mapped[float]=mapped_column(nullable=False)
+    description:Mapped[str] = mapped_column(String(100))
     is_available:Mapped[bool]=mapped_column(default=False)
 
     cartitem:Mapped["CartItem"]=relationship("CartItem",back_populates="product")
+    
 class Cart(Base):
     __tablename__="cart"
     id:Mapped[int]=mapped_column(primary_key=True)
     user_id:Mapped[int]=mapped_column(ForeignKey("users.id",ondelete="CASCADE"),unique=True)
-    
     items:Mapped[list["CartItem"]]=relationship("CartItem",back_populates="cart",cascade="all,delete-orphan")
 
 class CartItem(Base):

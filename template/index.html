@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Coffee Website</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta name="description" content="This is an trial Coffee Website" />
+    <meta name="author" content="MS" />
+    <meta name="Robots" content="index,follow" />
+    <meta name="theme-color" content="#F5F3ED" />
+    <script src="static/main.js" defer></script>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body>
+    <header class="navbar_sec">
+      <img
+        class="logo"
+        src="static/images/logo.svg"
+        alt="Logo"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
+      <nav class="nav_links">
+        <a class="links" href="#hero">Home</a>
+        <a class="links" href="#about-us">About</a>
+        <a class="links" href="#menu_section">Menu</a>
+        <a class="links" onclick="move_to_cart_page()">Cart</a>
+      </nav>
+
+      <div class="account_settings">
+        <svg
+          onclick="show_hide_settings_panel()"
+          width="100%"
+          height="100%"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M5.3163 19.4384C5.92462 18.0052 7.34492 17 9 17H15C16.6551 17 18.0754 18.0052 18.6837 19.4384M16 9.5C16 11.7091 14.2091 13.5 12 13.5C9.79086 13.5 8 11.7091 8 9.5C8 7.29086 9.79086 5.5 12 5.5C14.2091 5.5 16 7.29086 16 9.5ZM22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <div class="Settings_panel">
+          <aside class="Settings_panel_cta">
+            <button class="change_address_btn">Change Address</button>
+            <button class="logout_user_btn">Log Out</button>
+            <button class="delete_user_btn">Delete Account</button>
+          </aside>
+        </div>
+      </div>
+    </header>
+
+    <main class="content_sec">
+
+      <section id="hero">
+        <article class="hero_cta">
+          <aside class="hero_info">
+            <p class="links">Welcome to</p>
+            <h1 class="hero_info_title">
+              Your Cozy Corner<br />at Morning Brew
+            </h1>
+            <p>
+              Step into the comforting aroma of freshly brewed coffee and the
+              warmth of homemade pastries.
+            </p>
+          </aside>
+          <aside class="hero_btns">
+            <button class="primary_btn">Buy Coffee</button>
+            <button class="secondary_btn">See menu</button>
+          </aside>
+        </article>
+        <img
+          id="hero_image"
+          src="static/images/Hero_image.png"
+          alt="Image"
+          loading="eager"
+          fetchpriority="high"
+          decoding="sync"
+        />
+      </section>
+
+      <section class="store-info">
+        <img
+          src="static/images/img2.jpg"
+          alt="image"
+          loading="lazy"
+          fetchpriority="low"
+          decoding="async"
+        />
+
+        <article class="store-info__details">
+          <aside class="store-info__location">
+            <h3>Store Address</h3>
+            <p>
+              Heart of the City<br />
+              tel: 303-050-0000<br />
+              tel: 202-050-0000
+            </p>
+          </aside>
+
+          <aside class="store-info__hours">
+            <h3>Working Hours</h3>
+            <p>
+              Monday - Friday // 09:00 - 23:00<br />
+              Saturday // 10:00 - 01:00<br />
+              Sunday // CLOSED
+            </p>
+          </aside>
+        </article>
+      </section>
+
+      <section class="about-us" id="about-us">
+        <article class="about-us__details">
+          <div>
+            <h1>About us</h1>
+            <p>
+              Morning Brew Coffee Shop is your neighborhood destination for
+              freshly brewed coffee, delicious pastries, and a cozy atmosphere.
+              Owned and operated by passionate local coffee enthusiasts, we
+              focus on quality, community, and a welcoming experience for all.
+              Come start your day or relax with friends at Morning Brew—where
+              every cup is made with care.
+            </p>
+          </div>
+          <button class="secondary_btn">See menu</button>
+        </article>
+        <img src="static/images/img1.jpg" alt="image" />
+      </section>
+
+      <section class="speciality_sec">
+        <img
+          src="static/images/coffee.png"
+          alt="coffee Image"
+          loading="lazy"
+          fetchpriority="low"
+          decoding="async"
+        />
+        <article class="speciality_sec__details">
+          <img
+            src="static/images/golden-coffee-beans 1.png"
+            alt="coffee image"
+            loading="lazy"
+            fetchpriority="low"
+            decoding="async"
+          />
+          <p>
+            Quality coffee beans. We have<br />
+            certificate in beans quality .<br /><br />
+
+            We also offer good quality <br />
+            Freshly homemade pastries. <br />
+          </p>
+        </article>
+      </section>
+
+      <section id="menu_section">
+        <h1>----------- Our Menu -----------</h1>
+        <p class="menu_slogan">Freshly brewed and made to order every day</p>
+        <article class="menu_items_list">
+          {% for product in products %}
+          <div class="menu_item">
+            <img src="{{product.image}}" alt="{{product.name}}" />
+            <div class="menu_item_info">
+              <h4>{{product.name}}</h4>
+              <p class="menu_p">
+                {{product.description}}
+              </p>
+              <div class="menu_item_cta">
+                <span>{{product.price}}</span>
+                <form class="add_to_cart_form">
+                  <input type="hidden" name="product_id" value="{{product.id}}">
+                  <input type="number" name="product_qty" value="1" max="{{product.quantity}}">
+                  <button class="primary_btn" type="submit">Add to cart</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+
+        </article>
+      </section>
+    </main>
+    <footer class="footer-sec">
+      <div class="footer_content">
+        <div class="footer_brand">
+          <img class="logo" src="static/images/logo.svg" alt="Logo" />
+          <p>Your daily cozy coffee ritual.</p>
+        </div>
+
+        <nav class="footer_links">
+          <a class="links" href="#hero">Home</a>
+          <a class="links" href="#about-us">About</a>
+          <a class="links" href="#menu_section">Menu</a>
+        </nav>
+      </div>
+
+      <div class="footer_bottom">
+        <p>&copy; 2026 Morning Brew. All rights reserved.</p>
+      </div>
+    </footer>
+  </body>
+</html>
