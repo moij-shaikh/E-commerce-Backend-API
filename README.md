@@ -40,7 +40,7 @@ cd E-commerce-Backend-API
 
 ##### 2. Create a virtual environment
 - for linux/Mac:
-- 
+
 python3 -m venv .venv
 
 source .venv/bin/activate
@@ -73,7 +73,19 @@ Create a .env file in the project root and add the following  variables.
 ##### 6. Run database migrations
 alembic upgrade head
 
-##### 7. Start the API server
+##### 7. Run create_admin file. 
+- this will allows to create an admin easily. 
+- file is present at root directory. 
+
+- for linux/Mac:
+
+python3 create_admin.py
+
+- windows 
+
+python create_admin.py
+
+##### 8. Start the API server
 uvicorn main:app --reload
 
 ###### The API should now be available at:
