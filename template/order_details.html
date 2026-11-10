@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Details</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #fff9f0;
+            color: #4b3525;
+        }
+        .main_container {
+            max-width: 800px;
+            margin: 30px auto;
+        }
+        .order_details {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .order_details h3 {
+            margin-top: 15px;
+        }
+        .order_details hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 15px 0;
+        }
+        .product_item {
+            background: #f7eee3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 1px solid #e5d5c3;
+        }
+        .product_item p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 12px;
+            }
+            .main_container {
+                margin: 10px auto;
+            }
+            .order_details {
+                padding: 15px;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <main class="main_container">
+        <h1>Order Details</h1>
+        <div class="order_details"></div>
+    </main>
+    <script>
+        const order_id="{{id}}";
+        async function load_order() {
+            const token= sessionStorage.getItem("access_token")
+            if (!token){
+                window.location.href="/login"
+                return
+            }
+            console.log(order_id)
+            const req = await fetch(`/order/${order_id}`,{
+                method:"GET",
+                headers:{
+                    'Authorization':"Bearer "+token
+                }
+            })
+            const res = await req.json()
+            const order_details=document.querySelector(".order_details")
+            if(!req.ok){
+                order_details.textContent=res.detail
+                return
+            }
+            order_details.innerHTML=`
+                <h2>Order ID: ${res.id}</h2>
+                <p>Status: ${res.status}</p>
+                <p>Order Date: ${new Date(res.order_placed_at).toLocaleString()}</p>
+                <hr>
+                <h3>Product</h3>
+                `
+            res.items.forEach(item=>{
+                const product=document.createElement("div")
+                product.className = "product_item";
+                product.innerHTML=`
+                <p>Product: ${item.name}</p>
+                <p>Price: ${item.price}</p>
+                <p>Quantity: ${item.qty}</p>
+                <p>Total: ₹${item.total}</p>
+                <hr>
+                `;
+                order_details.append(product)
+            })
+            order_details.innerHTML += `
+                <h3>Total Products: ${res.total_products}</h3>
+                <h3>Total Amount: ₹${res.total_amount}</h3>
+                <p>Payment: ${res.is_paid ? "Paid" : "Not Paid"}</p>
+            `;
+        } 
+        load_order()
+    </script>
+</body>
+</html>

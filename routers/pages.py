@@ -37,3 +37,7 @@ async def page__cart(req:Request):
 @router.get("/page/order")
 async def page__order(req:Request):
     return template.TemplateResponse(req, "orders.html")
+@router.get("/order/detailed/{id}")
+async def page__order_detail(id:int, req:Request):
+    return template.TemplateResponse(req, "order_details.html",{"id":id})
+    

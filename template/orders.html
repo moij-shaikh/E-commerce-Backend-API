@@ -4,6 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order</title>
+    <style>
+        .orders_section {
+            width: 80%;
+            margin: 40px auto;
+            min-height: 400px;
+        }
+        .order_card {
+            background: #FFF9F0;
+            border: 1px solid #E7D9C8;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 18px 0;
+        }
+        .order_header, .order_footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .order_status {
+            background: #F1E5D6;
+            color: #6F4E37;
+            padding: 6px 12px;
+            border-radius: 8px;
+        }
+        .order_card p {
+            margin: 12px 0;
+        }
+
+        .order_actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .order_actions button {
+            cursor: pointer;
+        }
+        .view_order{
+            padding: 8px 16px;
+            border: 1px solid black;
+            background-color: green;
+            border-radius: 8px;
+            color: white;
+        }
+        @media(max-width: 600px) {
+            .orders_section {
+                width: 92%;
+            }
+
+            .order_header, .order_footer {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
     <main>
@@ -44,17 +99,20 @@
                     <h3>Order #${order.id}</h3>
                     <span class="order_status">${order.status}</span>
                 </div>
-                <p>Placed: ${order.order_placed_at}</p>
+                <p>Placed: ${new Date(order.order_placed_at).toLocaleString()}</p>
                 <div class="order_footer">
                     <p>Products: ${order.total_products}</p>
                     <h3>₹${order.total_amount}</h3>
                 </div>
                 <div class="order_actions">
-                    <button class="primary_btn view_order">
+                    <button class="view_order">
                             View Details
                     </button>
                 </div>
                 `;
+                card.querySelector(".view_order").addEventListener("click",()=>{
+                    window.location.href = `/order/detailed/${order.id}`
+                })
                 order_list.append(card)
             })
         }
