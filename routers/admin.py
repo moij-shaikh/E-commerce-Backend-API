@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.auth import check_admin , make_access_token
+from services.auth import check_admin , make_access_token, pass_hasher
 
 from fastapi import APIRouter,Response,Request,HTTPException,Depends,Form,BackgroundTasks,status
 
@@ -20,7 +20,7 @@ async def admin_login(res:Response,req:Request,bg_task:BackgroundTasks,username:
         db_admin= await db.get(Admin,username)
         if not db_admin:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Admin found. ")
-        if password != db_admin.password:
+        if not pass_hasher.verify(password, db_admin.password):
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid credentials.  ")
             
         try:
