@@ -34,3 +34,6 @@ async def page__register(req:Request):
 @router.get("/page/cart")
 async def page__cart(req:Request):
     return template.TemplateResponse(req, "cart.html")
+@router.get("/page/order")
+async def page__order(req:Request):
+    return template.TemplateResponse(req, "orders.html")

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order</title>
+</head>
+<body>
+    <main>
+        <h1>My Orders</h1>
+        <div class="order_list">
+
+        </div>
+    </main>
+    <script>
+        async function load_order(){
+            const token = sessionStorage.getItem("access_token");
+            if (!token){
+                window.location.href="/login"
+                return
+            }
+            const req = await  fetch("/order",{
+                method:"GET",
+                headers:{
+                    "Authorization":"Bearer "+token
+                }
+            })
+            const res = await  req.json()
+            if(req.status == 404){
+                alert('No order')
+                return
+            }
+            if(req.status == 401){
+                window.location.href="/login"
+                return
+            }
+            const order_list = document.querySelector(".order_list")
+            order_list.innerHTML=""
+            res.forEach(order=>{
+                const card=document.createElement("div")
+                card.className = "order_card"
+                card.innerHTML=`
+                <div class="order_head">
+                    <h3>Order #${order.id}</h3>
+                    <span class="order_status">${order.status}</span>
+                </div>
+                <p>Placed: ${order.order_placed_at}</p>
+                <div class="order_footer">
+                    <p>Products: ${order.total_products}</p>
+                    <h3>₹${order.total_amount}</h3>
+                </div>
+                <div class="order_actions">
+                    <button class="primary_btn view_order">
+                            View Details
+                    </button>
+                </div>
+                `;
+                order_list.append(card)
+            })
+        }
+        load_order()
+    </script>
+</body>
+</html>

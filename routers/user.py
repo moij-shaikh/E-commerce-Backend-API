@@ -126,7 +126,6 @@ async def user_login(req:Request,res:Response,user_data:OAuth2PasswordRequestFor
      except RedisError:
           raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Login service is down.")
      
-     
 @router.post("/auth/logout",tags=["Auth"])
 def user_logout(res:Response,req:Request,payload:dict=Depends(get_current_user)):
      refresh=req.cookies.get("refresh_token")
@@ -216,7 +215,7 @@ async def delete_user(payload:dict=Depends(get_current_user),db:AsyncSession=Dep
           await db.rollback()
           raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Sorry our database is down. try again")
 @router.post("/account",tags=["User"])
-async def delete_user(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
+async def reopen_account(payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
      try:
           user=int(payload.get("sub"))
           db_user=await db.get(User,user)

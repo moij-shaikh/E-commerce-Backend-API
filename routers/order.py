@@ -29,7 +29,7 @@ async def order__get_all(payload:dict=Depends(get_current_user), db:AsyncSession
 @router.get("/order/{id}")
 async def order__get_one(id:int,payload:dict=Depends(get_current_user),db:AsyncSession=Depends(get_db)):
     user_id=int(payload.get("sub"))
-    db_order= await db.scalar(select(Order).where(Order.id == id , Order.user_id ==user_id).options(selectinload(Order.items)))
+    db_order= await db.scalar(select(Order).where(Order.id == id , Order.user_id ==user_id).options(selectinload(Order.items).selectinload(OrderItems.product)))
     if not db_order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="No Order Found. ")
     display={
@@ -38,6 +38,7 @@ async def order__get_one(id:int,payload:dict=Depends(get_current_user),db:AsyncS
         "items":[
             {
                 "id":i.product_id,
+                "name":i.product.name,
                 "price":i.price,
                 "qty":i.product_qty ,
                 'total':i.total

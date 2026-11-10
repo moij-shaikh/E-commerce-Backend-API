@@ -57,7 +57,7 @@ class Product(Base):
     is_available:Mapped[bool]=mapped_column(default=False)
 
     cartitem:Mapped["CartItem"]=relationship("CartItem",back_populates="product")
-    
+    order_items:Mapped[list["OrderItems"]]=relationship("OrderItems", back_populates="product")
 class Cart(Base):
     __tablename__="cart"
     id:Mapped[int]=mapped_column(primary_key=True)
@@ -70,9 +70,7 @@ class CartItem(Base):
     cart_id:Mapped[int]=mapped_column(ForeignKey("cart.id",ondelete="CASCADE"))
     product_id:Mapped[int]=mapped_column(ForeignKey("products.id"))
     quantity:Mapped[float]
-    
     cart:Mapped["Cart"]=relationship("Cart",back_populates="items")
-    
     product:Mapped["Product"]=relationship("Product", back_populates="cartitem")
 
 
@@ -97,3 +95,4 @@ class OrderItems(Base):
     product_qty:Mapped[float]
     total:Mapped[float]
     order:Mapped["Order"]=relationship("Order",back_populates="items")
+    product:Mapped["Product"]=relationship("Product",back_populates="order_items")
