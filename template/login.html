@@ -3,7 +3,6 @@
 <head>
     <title>Login</title>
     <meta charset="UTF-8">
-    <script src="/static/login.js" defer></script>
     <style>
         body {
             display: flex;
@@ -46,8 +45,46 @@
             <input type="text" id="username" placeholder="Username" required>
             <input type="password" id="password" placeholder="Password" required>
             <button type="submit">Login</button>
-            <button type="submit">Register</button>
+            <button type="submit" onclick="window.location.href='/register'">Register</button>
         </form>
+        <h1 id="login_message"></h1>
     </div>
+
+<script>
+    const login_form = document.getElementById("login_form");
+    login_form.addEventListener("submit", async function(event) {
+        event.preventDefault();
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+        const form_data = new URLSearchParams();
+        form_data.append("username", username);
+        form_data.append("password", password);
+        try {
+            const response = await fetch("/user/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: form_data,
+                credentials: "same-origin"
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                document.getElementById("login_message").textContent =
+                    data.detail;
+                return;
+            }
+            sessionStorage.setItem("access_token", data.access_token);
+            document.getElementById("login_message").textContent ="login is successful. "
+            window.location.href="/"
+        }   
+        catch(error) {
+            console.log(error);
+            document.getElementById("login_message").textContent =
+                "Something went wrong";
+        }
+    });
+
+</script>
 </body>
 </html>

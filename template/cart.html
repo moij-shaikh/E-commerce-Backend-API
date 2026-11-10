@@ -8,8 +8,7 @@
     <meta name="author" content="MS" />
     <meta name="Robots" content="index,follow" />
     <meta name="theme-color" content="#F5F3ED" />
-    <script src="main.js" defer></script>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="/static/style.css" />
     <style>
       .cart_section {
         width: 80%;
@@ -17,23 +16,67 @@
         min-height: 400px;
       }
       .cart_item {
-          padding: 15px;
-          margin-bottom: 15px;
-          border-bottom: 1px solid gray;
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        align-items: center;
+        gap: 20px;
+        padding: 18px 22px;
+        background-color: #FFF9F0;
+        margin-bottom: 15px;
+        border: 1px solid gray;
+        border-radius: 8px;
+      }
+      .cart_item:nth-child(even){
+        background-color: #F1E5D6;
+      }
+      .cart_product_detail{
+        font-size: 18px;
+        color: #6F4E37;
+        margin-bottom: 6px;
       }
       .cart_item h3 {
           margin-bottom: 8px;
       }
       .cart_item p {
-          margin: 5px 0;
+          margin: 8px 0;
+      }
+      span{
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      .cart_product_actions{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .cart_product_actions h4{
+        font-size: 16px;
+        color: #6F4E37;
       }
       .remove_item {
           padding: 6px 12px;
+          color: #A47551;
+          background: transparent;
           cursor: pointer;
+          border: 1px solid black;
+          border-radius: 8px;
       }
-      #cart_total {
+      .cart_total {
           margin-top: 25px;
           text-align: right;
+      }
+      @media (max-width:650px) {
+        .cart_item{
+          grid-template-columns: 1fr;
+          gap: 14px;
+        }
+        .cart_product_actions{
+          border-top: 1px solid;
+          padding-top: 10px;
+        }
       }
     </style>
   </head>
@@ -117,7 +160,6 @@
           <a class="links" href="#menu_section">Menu</a>
         </nav>
       </div>
-
       <div class="footer_bottom">
         <p>&copy; 2026 Morning Brew. All rights reserved.</p>
       </div>
@@ -128,14 +170,21 @@
       const token= sessionStorage.getItem("access_token")
       if(!token){
         alert("Login")
+        window.location.href="/login"
+        return;
       }
       const req = await  fetch("/cart", {
         method:"GET",
         headers:{
-          "Authorization":"Bearer"+token
+          "Authorization":" Bearer "+token
         }
-      })
+      });
       const res=  await req.json()
+      if (req.status == 401){
+        sessionStorage.removeItem("access_token");
+        window.location.href="/login"
+        return
+      }
       if(!req.ok){
         alert(res.detail)
       }
@@ -149,14 +198,17 @@
       const div = document.createElement("div");
       div.className="cart_item";
       div.innerHTML = `
-            <h3>${item.name}</h3>
-            <p>Price: ${item.price} / ${item.unit}</p>
-            <p>Quantity: ${item.quantity}</p>
-            <h4>Subtotal: ${item.subtotal}</h4>
-
-            <button class="remove_item" data-id="${item.id}">
-                Remove
-            </button>
+          <div class="cart_product_detail">
+                <h3>${item.name}</h3>
+                <p>Price: ${item.price} / ${item.unit}</p>
+          </div>
+                <p>Quantity: ${item.quantity}</p>
+          <div class="cart_product_actions">
+                <h4>Subtotal: ${item.subtotal}</h4>
+                <button class="remove_item" data-id="${item.id}">
+                    Remove
+                </button>
+          </div>
         `;
         cart_items.appendChild(div);
         const remove_btn = div.querySelector(".remove_item");
@@ -164,18 +216,19 @@
             await remove_cart_item(item.id);
         });
     })
-        document.getElementById("total_amount").textContent = result.total_amount;
+        document.getElementById("total_amount").textContent = res.total_amount;
     }
     load_cart();
     async function remove_cart_item(item_id) {
       const token= sessionStorage.getItem("access_token")
       if(!token){
         alert("Login")
+        return
       }
       const response = await fetch(`/cart/items/${item_id}`,{
         method:"DELETE",
         headers:{
-          "Authorization":"Bearer"+token
+          "Authorization":"Bearer "+token
         }
       })
       const result = await response.json();
@@ -186,5 +239,30 @@
           alert(result.detail);
       }
   }
+    let check_out=document.getElementById("checkout_btn")
+    check_out.addEventListener("click" , async function(){
+      const token= sessionStorage.getItem("access_token")
+      if (!token) {
+        window.location.href = "/login";
+        return;
+    }
+    const response = await fetch("/order/check-out", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    });
+    const result= await response.json()
+    if(response.status == 401){
+      sessionStorage.removeItem("access_token")
+      window.location.href="/login"
+      return
+    }
+    if (!response.ok){
+      alert(result.detail)
+      return;
+    }
+    alert(result.message)
+    })
   </script>
 </html>

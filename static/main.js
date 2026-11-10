@@ -27,11 +27,12 @@ logout.addEventListener("click",async (e) => {
     const access_token = sessionStorage.getItem("access_token")
     if (!access_token){
        alert("Login first. ")
+       return
     }
     const req = await fetch("/user/auth/logout",{
       method:"Post",
       headers:{
-        "Authorization":"Bearer"+access_token
+        "Authorization":"Bearer "+access_token
       }
     })
     const res= await req.json()
@@ -58,13 +59,13 @@ delete_user.addEventListener("click", async (e) => {
     console.log("not login")
   }
   const req = await fetch("/user/account",{
-    method:"POST",
+    method:"DELETE",
     headers:{
-      "Authorization":"Bearer"+token
+      "Authorization":"Bearer "+token
     }
   })
-  const result = await response.json();
-    if (response.ok) {
+  const result = await req.json();
+    if (req.ok) {
         sessionStorage.removeItem("access_token");
         alert(result.message);
         window.location.href = "/";
@@ -75,19 +76,20 @@ delete_user.addEventListener("click", async (e) => {
 });
 
 const cart_form=document.querySelectorAll(".add_to_cart_form")
-cart_form.forEach(function(from){
-  from.addEventListener("submit", async function(e){
+cart_form.forEach(function(form){
+  form.addEventListener("submit", async function(e){
     e.preventDefault()
     const token= sessionStorage.getItem("access_token")
     if(!token){
       alert("Please login first. ")
+      window.location.href="/login"
       return
     }
      const form_data = new FormData(form);
      const response = await fetch("/cart",{
       method:"POST",
       headers:{
-        "Authorization":"Bearer"+token
+        "Authorization":"Bearer "+ token
       },
       body:form_data
      });
@@ -106,7 +108,8 @@ function move_to_cart_page(){
   const token= sessionStorage.getItem("access_token")
   if(!token){
     window.location.href="/login"
+    return
   }
-    window.location.href="/cart"
+    window.location.href="/page/cart"
 
 }

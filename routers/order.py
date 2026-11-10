@@ -118,7 +118,6 @@ async def order__checkout(payload:dict=Depends(get_current_user),db:AsyncSession
         for id in  products.keys():
             if id not in product_ids:
                 not_available_items.add(id)
-            
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=f"Some products are not available. {not_available_items}")
     for item in db_cart.items:
         product=products.get(item.product_id)
@@ -127,7 +126,7 @@ async def order__checkout(payload:dict=Depends(get_current_user),db:AsyncSession
         if not product.is_available:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Product is not available. ")
         if product.quantity < item.quantity:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Product is Stock not available.we only have {is_product.quantity}  ")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail=f"Product is Stock not available.we only have {product.quantity}  ")
     total_amount=sum(
         products[item.product_id].price * item.quantity
         for item in db_cart.items
@@ -164,9 +163,6 @@ async def order__checkout(payload:dict=Depends(get_current_user),db:AsyncSession
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Oder could not be placed. ")
         
-    
-
-
 @router.delete("/order/{id}")
 async def order__delete(id:int, payload:dict=Depends(get_current_user), db:AsyncSession=Depends(get_db)):
     user_id=int(payload.get("sub"))
